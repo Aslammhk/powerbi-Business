@@ -213,6 +213,149 @@ cmd = "npm run preview -- --host 0.0.0.0 --port $PORT"
 Write-Host "✅ frontend/nixpacks.toml created" -ForegroundColor Green
 
 
+# Update vite.config.js to support preview
+@"
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: parseInt(process.env.PORT) || 3000,
+    host: '0.0.0.0'
+  },
+  preview: {
+    port: parseInt(process.env.PORT) || 3000,
+    host: '0.0.0.0',
+    allowedHosts: ['all']
+  },
+  build: {
+    outDir: 'dist'
+  }
+})
+"@ | Out-File -FilePath "frontend\vite.config.js" -Encoding UTF8
+Write-Host "✅ frontend/vite.config.js updated" -ForegroundColor Green
+
+
+
+
+# Update frontend package.json with correct scripts
+@"
+{
+  "name": "money-tree-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.0",
+    "axios": "^1.6.5",
+    "zustand": "^4.4.7",
+    "reactflow": "^11.10.1",
+    "recharts": "^2.10.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.11",
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33"
+  }
+}
+"@ | Out-File -FilePath "frontend\package.json" -Encoding UTF8
+Write-Host "✅ frontend/package.json updated" -ForegroundColor Green
+
+
+# Create railway.json for telegram bot
+@"
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "python bot.py",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+"@ | Out-File -FilePath "telegram-bot\railway.json" -Encoding UTF8
+Write-Host "✅ telegram-bot/railway.json created" -ForegroundColor Green
+
+
+# Create nixpacks.toml for telegram bot
+@"
+[phases.setup]
+nixPkgs = ["python311"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python bot.py"
+"@ | Out-File -FilePath "telegram-bot\nixpacks.toml" -Encoding UTF8
+Write-Host "✅ telegram-bot/nixpacks.toml created" -ForegroundColor Green
+
+
+
+# Go to project folder
+cd "C:\Users\dell 7210\Desktop\money-tree-network"
+
+# Add all new files
+git add .
+
+# Commit
+git commit -m "Add Railway deployment config for monorepo"
+
+# Push to GitHub
+git push origin main --force
+
+Write-Host "✅ Pushed to GitHub!" -ForegroundColor Green
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
