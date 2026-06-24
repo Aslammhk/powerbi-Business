@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm
+
+# React Build
+frontend/dist/
+frontend/build/
+mobile/dist/
+admin-mobile/dist/
+
+# Environment (NEVER upload these)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Docker volumes
+postgres_data/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Playwright browsers
+.playwright/
+playwright-browsers/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Expo
+.expo/
+web-build/
+
+# Security
+*.pem
+*.key
+*.crt
+*.p12
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Uploads
+uploads/
+media/
