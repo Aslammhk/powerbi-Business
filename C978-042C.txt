@@ -1,0 +1,231 @@
+C978-042C
+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
+
+
+# Remove old remote if exists
+git remote remove origin
+
+# ⚠️ REPLACE ghp_YOURTOKEN with your actual token
+# ⚠️ Keep everything else exactly as shown
+git remote add origin https://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
+@github.com/Aslammhk/-powerbi-Business.git
+
+# Verify connection
+git remote -v
+
+
+
+1. Go to: https://railway.app
+2. Click "Login with GitHub"
+3. You are in!
+
+
+1. Click "New Project"
+2. Click "Empty Project"
+   (NOT "Deploy from GitHub" this time)
+3. Project is created — you see empty canvas
+
+
+1. Click "+ Add Service"
+2. Click "Database"
+3. Click "Add PostgreSQL"
+4. Wait 30 seconds
+5. Click on PostgreSQL service
+6. Click "Variables" tab
+7. Copy the DATABASE_URL value
+   Looks like:
+   postgresql://postgres:xxxx@monorail.proxy.rlwy.net:12345/railway
+   
+postgresql://${{PGUSER}}:${{POSTGRES_PASSWORD}}@${{RAILWAY_PRIVATE_DOMAIN}}:5432/${{PGDATABASE}}
+
+   SAVE THIS — you need it later!
+
+
+1. Click "+ Add Service"
+2. Click "Database"
+3. Click "Add Redis"
+4. Wait 30 seconds
+5. Click on Redis service
+6. Click "Variables" tab
+7. Copy the REDIS_URL value
+   Looks like:
+   redis://default:xxxx@monorail.proxy.rlwy.net:12345
+   redis://${{REDISUSER}}:${{REDIS_PASSWORD}}@${{REDISHOST}}:${{REDISPORT}}
+   SAVE THIS — you need it later!
+
+
+1. Click "+ Add Service"
+2. Click "GitHub Repo"
+3. Select: Aslammhk/-powerbi-Business
+4. Click "Add Service"
+
+5. Service appears — click on it
+6. Click "Settings" tab
+7. Find "Root Directory"
+8. Type: backend
+9. Press Enter / Save
+
+10. Click "Deploy" tab
+11. Find "Start Command"
+12. Type this exactly:
+    uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+13. Click "Variables" tab
+14. Click "Add Variable" for each:
+
+
+
+
+Add these variables ONE BY ONE:
+
+Variable Name          Value
+─────────────────────────────────────────────────────
+DATABASE_URL           [paste from PostgreSQL above]
+REDIS_URL              [paste from Redis above]
+SECRET_KEY             moneytree-secret-key-change-this-2024
+ADMIN_EMAIL            your@email.com
+ADMIN_PASSWORD         YourPassword123
+APP_NAME               MoneyTree Network
+BASE_URL               https://your-frontend.up.railway.app
+API_URL                https://your-backend.up.railway.app
+SMTP_HOST              smtp.gmail.com
+SMTP_PORT              587
+SMTP_USER              your@gmail.com
+SMTP_PASSWORD          your-gmail-app-password
+TELEGRAM_BOT_TOKEN     your-bot-token  8242348517:AAFImdITHtCU3f6hQJxfnqiLj7FytBm3Xi0
+https://api.telegram.org/bot8242348517:AAFImdITHtCU3f6hQJxfnqiLj7FytBm3Xi0/getUpdates
+chid_id: 6743271664
+YOUTUBE_API_KEY        your-youtube-key
+POINTS_PER_REFERRAL    100
+POINTS_PER_BROWSE      5
+POINTS_PER_LIKE        10
+POINTS_PER_SUBSCRIBE   20
+POINTS_CASHOUT_MINIMUM 500
+DEFAULT_BROWSE_TOTAL   25
+ADMIN_CHANNEL_SLOTS    10
+MAX_DAILY_ACTIONS      35
+MIN_DELAY_SECONDS      15
+MAX_DELAY_SECONDS      50
+
+
+
+
+390175448274-n9pjs004fmfecni13dsj3qidnid2v404.apps.googleusercontent.com
+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
+
+
+openssl rand -hex 32
+a3f8c2e91b4d7f6a0c5e8d3b2a1f9c4e7d6b5a8c3f2e1d0a9b8c7d6e5f4a3b2
+
+
+
+# Run in PowerShell on your computer
+# Go to your project folder first:
+cd "C:\Users\dell 7210\Desktop\money-tree-network"
+
+
+
+# Create Procfile for Railway (backend)
+@"
+web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+worker: celery -A app.workers.celery_app worker --loglevel=info
+"@ | Out-File -FilePath "backend\Procfile" -Encoding UTF8
+Write-Host "✅ backend/Procfile created" -ForegroundColor Green
+
+
+# Create nixpacks.toml for Railway (backend)
+@"
+[phases.setup]
+nixPkgs = ["python311", "gcc", "libpq"]
+
+[phases.install]
+cmds = [
+    "pip install -r requirements.txt",
+    "playwright install chromium",
+    "playwright install-deps chromium"
+]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+"@ | Out-File -FilePath "backend\nixpacks.toml" -Encoding UTF8
+Write-Host "✅ backend/nixpacks.toml created" -ForegroundColor Green
+
+
+
+
+
+# Create railway.json for backend
+@"
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+"@ | Out-File -FilePath "backend\railway.json" -Encoding UTF8
+Write-Host "✅ backend/railway.json created" -ForegroundColor Green
+
+
+
+# Create runtime.txt for backend
+@"
+python-3.11.0
+"@ | Out-File -FilePath "backend\runtime.txt" -Encoding UTF8
+Write-Host "✅ backend/runtime.txt created" -ForegroundColor Green
+
+
+# Create railway.json for frontend
+@"
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "npm run preview -- --host 0.0.0.0 --port $PORT",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+"@ | Out-File -FilePath "frontend\railway.json" -Encoding UTF8
+Write-Host "✅ frontend/railway.json created" -ForegroundColor Green
+
+
+# Create nixpacks.toml for frontend
+@"
+[phases.setup]
+nixPkgs = ["nodejs_18"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run preview -- --host 0.0.0.0 --port $PORT"
+"@ | Out-File -FilePath "frontend\nixpacks.toml" -Encoding UTF8
+Write-Host "✅ frontend/nixpacks.toml created" -ForegroundColor Green
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
