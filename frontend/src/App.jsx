@@ -1,33 +1,53 @@
+import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
-import { useTheme } from './store/useTheme'
-import Landing from './pages/Landing'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
-import AdminDashboard from './pages/admin/AdminDashboard'
-import AdminUsers from './pages/admin/AdminUsers'
-import AdminChannels from './pages/admin/AdminChannels'
+import Landing from './pages/Landing.jsx'
+import Login from './pages/Login.jsx'
+import Register from './pages/Register.jsx'
+import Dashboard from './pages/Dashboard.jsx'
+import AdminDashboard from './pages/admin/AdminDashboard.jsx'
+import AdminUsers from './pages/admin/AdminUsers.jsx'
+import AdminChannels from './pages/admin/AdminChannels.jsx'
 
-const Private = ({ c: C }) => localStorage.getItem('token') ? <C /> : <Navigate to="/login" />
-const Admin = ({ c: C }) => localStorage.getItem('token') ? <C /> : <Navigate to="/login" />
+function getToken() {
+  return localStorage.getItem('token')
+}
 
-export default function App() {
-  const { initTheme } = useTheme()
-  useEffect(() => { initTheme() }, [])
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/join/:slug" element={<Register />} />
-        <Route path="/dashboard" element={<Private c={Dashboard} />} />
-        <Route path="/admin" element={<Admin c={AdminDashboard} />} />
-        <Route path="/admin/users" element={<Admin c={AdminUsers} />} />
-        <Route path="/admin/channels" element={<Admin c={AdminChannels} />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
+function PrivateRoute(props) {
+  if (getToken()) {
+    return props.children
+  }
+  return React.createElement(Navigate, { to: '/login', replace: true })
+}
+
+function App() {
+  return React.createElement(
+    BrowserRouter,
+    null,
+    React.createElement(
+      Routes,
+      null,
+      React.createElement(Route, { path: '/', element: React.createElement(Landing) }),
+      React.createElement(Route, { path: '/login', element: React.createElement(Login) }),
+      React.createElement(Route, { path: '/register', element: React.createElement(Register) }),
+      React.createElement(Route, {
+        path: '/dashboard',
+        element: React.createElement(PrivateRoute, null, React.createElement(Dashboard))
+      }),
+      React.createElement(Route, {
+        path: '/admin',
+        element: React.createElement(PrivateRoute, null, React.createElement(AdminDashboard))
+      }),
+      React.createElement(Route, {
+        path: '/admin/users',
+        element: React.createElement(PrivateRoute, null, React.createElement(AdminUsers))
+      }),
+      React.createElement(Route, {
+        path: '/admin/channels',
+        element: React.createElement(PrivateRoute, null, React.createElement(AdminChannels))
+      }),
+      React.createElement(Route, { path: '*', element: React.createElement(Navigate, { to: '/', replace: true }) })
+    )
   )
 }
+
+export default App

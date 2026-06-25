@@ -1,19 +1,16 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 
-export const useTheme = create(
-  persist(
-    (set, get) => ({
-      isDark: false,
-      toggleDark: () => {
-        const next = !get().isDark
-        set({ isDark: next })
-        document.documentElement.classList.toggle('dark', next)
-      },
-      initTheme: () => {
-        document.documentElement.classList.toggle('dark', get().isDark)
-      }
-    }),
-    { name: 'theme' }
-  )
-)
+var useTheme = create(function(set, get) {
+  return {
+    isDark: false,
+    toggleDark: function() {
+      var next = !get().isDark
+      set({ isDark: next })
+    },
+    initTheme: function() {
+      set({ isDark: false })
+    }
+  }
+})
+
+export { useTheme }
