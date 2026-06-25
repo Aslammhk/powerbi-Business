@@ -15,6 +15,6 @@ export const useTheme = create(
         document.documentElement.classList.toggle('dark', isDark)
       }
     }),
-    { name: 'theme' }
+    { name: 'money-tree-theme' }
   )
 )
