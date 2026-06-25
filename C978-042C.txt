@@ -319,7 +319,7 @@ git push origin main --force
 Write-Host "✅ Pushed to GitHub!" -ForegroundColor Green
 
 
-
+postgresql://moneytree:8dTkYD7R5wvtxPzFrJ8FC4AChuh2HvqH@dpg-d8uavlb7uimc73e01js0-a/moneytree_9rtg
 
 
 
