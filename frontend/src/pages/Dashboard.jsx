@@ -1,180 +1,105 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
-import { useTheme } from '../store/useTheme'
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [stats, setStats] = useState({})
-  const [inviteLink, setInviteLink] = useState('')
+  const [invite, setInvite] = useState('')
   const [copied, setCopied] = useState(false)
-  const [logs, setLogs] = useState([])
-  const navigate = useNavigate()
-  const { isDark, toggleDark } = useTheme()
+  const nav = useNavigate()
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) { navigate('/login'); return }
-    loadData()
+    if (!localStorage.getItem('token')) { nav('/login'); return }
+    Promise.all([api.get('/api/auth/me'), api.get('/api/browse/stats')])
+      .then(([u,s]) => { setUser(u.data); setStats(s.data) })
+      .catch(() => nav('/login'))
   }, [])
 
-  const loadData = async () => {
-    try {
-      const [userRes, statsRes, logsRes] = await Promise.all([
-        api.get('/api/auth/me'),
-        api.get('/api/browse/stats'),
-        api.get('/api/browse/logs?limit=5')
-      ])
-      setUser(userRes.data)
-      setStats(statsRes.data)
-      setLogs(logsRes.data)
-    } catch (e) {
-      navigate('/login')
-    }
+  const genInvite = async () => {
+    const r = await api.post('/api/invite/generate')
+    setInvite(r.data.invite_link)
   }
 
-  const generateInvite = async () => {
-    const res = await api.post('/api/invite/generate')
-    setInviteLink(res.data.invite_link)
-  }
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(inviteLink)
+  const copy = () => {
+    navigator.clipboard.writeText(invite)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const logout = () => {
-    localStorage.clear()
-    navigate('/login')
-  }
-
   if (!user) return (
-    <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="text-center">
-        <div className="text-6xl animate-bounce">🌳</div>
-        <p className="text-gray-500 mt-4">Loading your dashboard...</p>
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#f9fafb'}}>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontSize:'60px',animation:'bounce 1s infinite'}}>🌳</div>
+        <p style={{color:'#6b7280',marginTop:'16px'}}>Loading dashboard...</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Navbar */}
-      <nav className="bg-green-700 text-white p-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🌳</span>
+    <div style={{minHeight:'100vh',background:'#f9fafb'}}>
+      <nav style={{background:'#166534',color:'white',padding:'16px 24px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+          <span style={{fontSize:'28px'}}>🌳</span>
           <div>
-            <h1 className="font-bold text-lg">Money Tree</h1>
-            <p className="text-green-200 text-xs">Welcome, {user.username}!</p>
+            <div style={{fontWeight:'bold',fontSize:'18px'}}>Money Tree</div>
+            <div style={{color:'#bbf7d0',fontSize:'12px'}}>Welcome, {user.username}!</div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={toggleDark} className="bg-white/20 px-3 py-1 rounded-lg text-sm">
-            {isDark ? '☀️' : '🌙'}
-          </button>
+        <div style={{display:'flex',gap:'8px'}}>
           {user.is_admin && (
-            <button onClick={() => navigate('/admin')} className="bg-yellow-500 px-3 py-1 rounded-lg text-sm font-semibold">
-              ⚙️ Admin
-            </button>
+            <button onClick={() => nav('/admin')} style={{background:'#eab308',color:'white',border:'none',borderRadius:'8px',padding:'8px 16px',cursor:'pointer',fontWeight:'bold'}}>⚙️ Admin</button>
           )}
-          <button onClick={logout} className="bg-red-500 px-3 py-1 rounded-lg text-sm">
-            Logout
-          </button>
+          <button onClick={() => { localStorage.clear(); nav('/login') }} style={{background:'#dc2626',color:'white',border:'none',borderRadius:'8px',padding:'8px 16px',cursor:'pointer'}}>Logout</button>
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto p-4 md:p-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div style={{maxWidth:'1100px',margin:'0 auto',padding:'24px 16px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'16px',marginBottom:'24px'}}>
           {[
-            { icon: '📺', label: 'Browsed', value: stats.total_browsed || 0, color: 'text-blue-600' },
-            { icon: '✅', label: 'Success', value: stats.successful || 0, color: 'text-green-600' },
-            { icon: '👥', label: 'Referrals', value: user.total_referrals || 0, color: 'text-purple-600' },
-            { icon: '🌳', label: 'Tree Size', value: stats.tree_size || 0, color: 'text-orange-600' }
+            {icon:'📺',label:'Channels Browsed',value:stats.total_browsed||0,color:'#2563eb'},
+            {icon:'✅',label:'Successful',value:stats.successful||0,color:'#16a34a'},
+            {icon:'👥',label:'My Referrals',value:user.total_referrals||0,color:'#9333ea'},
+            {icon:'🌳',label:'Tree Size',value:stats.tree_size||0,color:'#ea580c'},
           ].map(s => (
-            <div key={s.label} className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 md:p-6 text-center">
-              <div className="text-3xl mb-2">{s.icon}</div>
-              <div className={	ext-2xl font-bold }>{s.value}</div>
-              <div className="text-gray-500 text-sm">{s.label}</div>
+            <div key={s.label} style={{background:'white',borderRadius:'20px',boxShadow:'0 2px 12px rgba(0,0,0,0.06)',padding:'24px',textAlign:'center'}}>
+              <div style={{fontSize:'32px',marginBottom:'8px'}}>{s.icon}</div>
+              <div style={{fontSize:'28px',fontWeight:'bold',color:s.color}}>{s.value}</div>
+              <div style={{color:'#6b7280',fontSize:'13px',marginTop:'4px'}}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Invite Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-            🔗 Invite People to Your Tree
-          </h2>
-          <p className="text-gray-500 text-sm mb-4">
-            When someone joins with your link, the system auto-browses your channels!
-          </p>
-          {!inviteLink ? (
-            <button
-              onClick={generateInvite}
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-bold transition"
-            >
+        <div style={{background:'white',borderRadius:'20px',boxShadow:'0 2px 12px rgba(0,0,0,0.06)',padding:'24px',marginBottom:'24px'}}>
+          <h2 style={{fontWeight:'bold',fontSize:'18px',marginBottom:'8px',color:'#111827'}}>🔗 Invite People to Your Tree</h2>
+          <p style={{color:'#6b7280',fontSize:'14px',marginBottom:'16px'}}>When someone joins with your link, system auto-browses your channels!</p>
+          {!invite ? (
+            <button onClick={genInvite} style={{background:'#16a34a',color:'white',border:'none',borderRadius:'12px',padding:'12px 32px',fontSize:'15px',fontWeight:'bold',cursor:'pointer'}}>
               🌱 Generate Invite Link
             </button>
           ) : (
-            <div className="flex gap-2 flex-wrap">
-              <input
-                readOnly value={inviteLink}
-                className="flex-1 min-w-0 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl p-3 text-sm"
-              />
-              <button
-                onClick={copyLink}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold whitespace-nowrap"
-              >
+            <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+              <input readOnly value={invite} style={{flex:'1',minWidth:'200px',border:'1px solid #e5e7eb',borderRadius:'12px',padding:'12px',fontSize:'13px'}} />
+              <button onClick={copy} style={{background:copied?'#16a34a':'#2563eb',color:'white',border:'none',borderRadius:'12px',padding:'12px 24px',cursor:'pointer',fontWeight:'bold',whiteSpace:'nowrap'}}>
                 {copied ? '✅ Copied!' : '📋 Copy'}
               </button>
             </div>
           )}
         </div>
 
-        {/* Quick Navigation */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'16px'}}>
           {[
-            { icon: '🌳', label: 'View Tree', path: '/tree' },
-            { icon: '🏆', label: 'Leaderboard', path: '/leaderboard' },
-            { icon: '💰', label: 'My Points', path: '/points' },
-            { icon: '🔗', label: 'My URL', path: '/my-url' }
+            {icon:'🌳',label:'View Tree',path:'/tree'},
+            {icon:'🏆',label:'Leaderboard',path:'/leaderboard'},
+            {icon:'💰',label:'My Points',path:'/points'},
+            {icon:'🔗',label:'My URL',path:'/my-url'},
           ].map(item => (
-            <button
-              key={item.label}
-              onClick={() => navigate(item.path)}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 text-center hover:shadow-lg transition"
-            >
-              <div className="text-3xl mb-1">{item.icon}</div>
-              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                {item.label}
-              </div>
+            <button key={item.label} onClick={() => nav(item.path)}
+              style={{background:'white',border:'none',borderRadius:'20px',boxShadow:'0 2px 12px rgba(0,0,0,0.06)',padding:'24px 16px',cursor:'pointer',textAlign:'center',transition:'box-shadow 0.2s'}}>
+              <div style={{fontSize:'36px',marginBottom:'8px'}}>{item.icon}</div>
+              <div style={{fontWeight:'600',color:'#374151',fontSize:'14px'}}>{item.label}</div>
             </button>
           ))}
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
-            📋 Recent Browse Activity
-          </h2>
-          {logs.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <div className="text-4xl mb-2">🤖</div>
-              <p>No activity yet. Invite someone to start auto-browsing!</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {logs.map((log, i) => (
-                <div key={i} className={lex justify-between items-center p-3 rounded-xl text-sm }>
-                  <span className="font-medium dark:text-white">
-                    {log.status === 'success' ? '✅' : '❌'} {log.channel_name}
-                  </span>
-                  <span className="text-gray-400 text-xs">{log.executed_at?.slice(0, 16)}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>

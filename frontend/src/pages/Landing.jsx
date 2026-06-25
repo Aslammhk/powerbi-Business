@@ -1,53 +1,31 @@
 import { useNavigate } from 'react-router-dom'
-import { useTheme } from '../store/useTheme'
-
 export default function Landing() {
-  const navigate = useNavigate()
-  const { isDark, toggleDark } = useTheme()
-
+  const nav = useNavigate()
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-950 flex flex-col items-center justify-center p-6 relative">
-      <button
-        onClick={toggleDark}
-        className="absolute top-4 right-4 text-white text-2xl bg-white/10 p-2 rounded-xl hover:bg-white/20"
-      >
-        {isDark ? '☀️' : '🌙'}
-      </button>
-
-      <div className="text-center text-white max-w-2xl w-full">
-        <div className="text-8xl mb-6">🌳</div>
-        <h1 className="text-5xl font-bold mb-4">Money Tree Network</h1>
-        <p className="text-green-200 text-xl mb-8">
-          Grow your YouTube channel through automated referral browsing
+    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#166534,#14532d)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+      <div style={{textAlign:'center',color:'white',maxWidth:'500px'}}>
+        <div style={{fontSize:'80px',marginBottom:'16px'}}>🌳</div>
+        <h1 style={{fontSize:'40px',fontWeight:'bold',marginBottom:'12px'}}>Money Tree Network</h1>
+        <p style={{color:'#bbf7d0',fontSize:'18px',marginBottom:'32px'}}>
+          Grow your YouTube channels together through automated referral browsing
         </p>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {[
-            { icon: '📺', label: 'Auto Browse' },
-            { icon: '💰', label: 'Earn Points' },
-            { icon: '🏆', label: 'Leaderboard' },
-            { icon: '🔗', label: 'Custom URLs' }
-          ].map(f => (
-            <div key={f.label} className="bg-white/10 rounded-2xl p-4 text-center">
-              <div className="text-3xl mb-1">{f.icon}</div>
-              <div className="text-sm text-green-100">{f.label}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={() => navigate('/register')}
-            className="bg-white text-green-800 font-bold py-4 px-10 rounded-2xl text-lg hover:bg-green-50 transition"
-          >
+        <div style={{display:'flex',gap:'16px',justifyContent:'center',flexWrap:'wrap'}}>
+          <button onClick={() => nav('/register')}
+            style={{background:'white',color:'#166534',padding:'14px 36px',borderRadius:'50px',border:'none',fontWeight:'bold',fontSize:'16px',cursor:'pointer'}}>
             🌱 Join Free
           </button>
-          <button
-            onClick={() => navigate('/login')}
-            className="bg-transparent border-2 border-white text-white font-bold py-4 px-10 rounded-2xl text-lg hover:bg-white/10 transition"
-          >
+          <button onClick={() => nav('/login')}
+            style={{background:'transparent',color:'white',padding:'14px 36px',borderRadius:'50px',border:'2px solid white',fontWeight:'bold',fontSize:'16px',cursor:'pointer'}}>
             Login
           </button>
+        </div>
+        <div style={{marginTop:'40px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+          {[['📺','Auto Browse 25 Channels'],['💰','Earn Points & Rewards'],['🏆','Leaderboard Rankings'],['🔗','Custom Invite URLs']].map(([icon,label]) => (
+            <div key={label} style={{background:'rgba(255,255,255,0.1)',borderRadius:'16px',padding:'16px'}}>
+              <div style={{fontSize:'28px'}}>{icon}</div>
+              <div style={{fontSize:'13px',color:'#bbf7d0',marginTop:'4px'}}>{label}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
