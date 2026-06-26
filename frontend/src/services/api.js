@@ -1,11 +1,11 @@
 import axios from 'axios'
 
-// HARDCODED backend URL - no env variable issues
+// HARDCODED to moneytube backend - DO NOT CHANGE
 var API_URL = 'https://moneytube.onrender.com'
 
-console.log('========================================')
-console.log('API URL:', API_URL)
-console.log('========================================')
+console.log('===========================================')
+console.log('API connecting to:', API_URL)
+console.log('===========================================')
 
 var api = axios.create({
   baseURL: API_URL,
@@ -24,13 +24,14 @@ api.interceptors.request.use(function(config) {
 
 api.interceptors.response.use(
   function(response) {
-    console.log('RESPONSE:', response.status, response.config.url)
+    console.log('RESPONSE OK:', response.status)
     return response
   },
   function(error) {
-    console.error('ERROR:', error.message)
+    console.error('REQUEST ERROR:', error.message)
     if (error.response) {
       console.error('Status:', error.response.status)
+      console.error('URL:', error.config.url)
       console.error('Data:', error.response.data)
     }
     if (error.response && error.response.status === 401) {
