@@ -1,10 +1,15 @@
 import axios from 'axios'
 
-var BASE_URL = import.meta.env.VITE_API_URL || 'https://moneytube.onrender.com'
+// HARDCODED backend URL - no env variable issues
+var API_URL = 'https://moneytube.onrender.com'
+
+console.log('========================================')
+console.log('API URL:', API_URL)
+console.log('========================================')
 
 var api = axios.create({
-  baseURL: BASE_URL,
-  timeout: 30000,
+  baseURL: API_URL,
+  timeout: 60000,
   withCredentials: false
 })
 
@@ -13,15 +18,26 @@ api.interceptors.request.use(function(config) {
   if (token) {
     config.headers['Authorization'] = 'Bearer ' + token
   }
+  console.log('REQUEST:', config.method.toUpperCase(), config.baseURL + config.url)
   return config
 })
 
 api.interceptors.response.use(
-  function(response) { return response },
+  function(response) {
+    console.log('RESPONSE:', response.status, response.config.url)
+    return response
+  },
   function(error) {
+    console.error('ERROR:', error.message)
+    if (error.response) {
+      console.error('Status:', error.response.status)
+      console.error('Data:', error.response.data)
+    }
     if (error.response && error.response.status === 401) {
       localStorage.clear()
-      window.location.href = '/login'
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
@@ -15,14 +16,12 @@ import secrets
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY",
-    "changeme-secret-key-32chars-minimum"
-)
+SECRET_KEY = os.environ.get("SECRET_KEY", "changeme-secret-key-32chars-minimum")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 10080
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -42,10 +41,10 @@ async def lifespan(app: FastAPI):
         import app.models.revenue
         if engine:
             Base.metadata.create_all(bind=engine)
-            logger.info("Database tables created")
+            logger.info("Database tables ready")
             await create_admin_user()
     except Exception as e:
-        logger.warning(f"Startup warning: {e}")
+        logger.warning(f"Startup: {e}")
     yield
     logger.info("Shutting down...")
 
@@ -57,7 +56,7 @@ async def create_admin_user():
         from app.models.tree_node import TreeNode
         db = SessionLocal()
         existing = db.query(User).filter(
-            User.email == ADMIN_EMAIL
+            (User.email == ADMIN_EMAIL) | (User.username == "admin")
         ).first()
         if not existing:
             admin = User(
@@ -86,13 +85,35 @@ async def create_admin_user():
 
 app = FastAPI(title="MoneyTree API", version="1.0.0", lifespan=lifespan)
 
+# ─── CORS Setup - Allow Everything ─────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://moneytube-frontend.onrender.com",
+        "https://moneytree-frontend.onrender.com",
+        "https://moneytube.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "*"
+    ],
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
+
+
+@app.options("/{path:path}")
+async def options_handler(request: Request):
+    return JSONResponse(
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 
 def create_token(data: dict):
@@ -124,10 +145,18 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(401, "Invalid token")
 
 
-# Root & Health
 @app.get("/")
 def root():
-    return {"app": "MoneyTree", "status": "running", "version": "1.0.0"}
+    return {
+        "app": "MoneyTree",
+        "status": "running",
+        "version": "1.0.0",
+        "endpoints": {
+            "register": "/api/auth/register",
+            "login": "/api/auth/login",
+            "docs": "/docs"
+        }
+    }
 
 
 @app.get("/health")
@@ -144,11 +173,11 @@ def health():
     return {
         "status": "healthy",
         "database": db_status,
+        "database_url_set": bool(DATABASE_URL),
         "port": os.environ.get("PORT", "8000")
     }
 
 
-# Auth
 @app.post("/api/auth/register")
 async def register(
     email: str,
@@ -163,12 +192,14 @@ async def register(
     from app.models.tree_node import TreeNode
     from app.models.invite import Invite
 
+    logger.info(f"Register attempt: {email}")
+
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(400, "Email already registered")
     if db.query(User).filter(User.username == username).first():
-        raise HTTPException(400, "Username taken")
+        raise HTTPException(400, "Username already taken")
     if len(password) < 6:
-        raise HTTPException(400, "Password too short (min 6 chars)")
+        raise HTTPException(400, "Password must be at least 6 characters")
 
     parent = None
     if invite_code:
@@ -219,10 +250,11 @@ async def register(
         db.commit()
     except Exception as e:
         db.rollback()
-        logger.error(f"Register error: {e}")
-        raise HTTPException(500, "Registration failed")
+        logger.error(f"Register DB error: {e}")
+        raise HTTPException(500, "Registration failed: " + str(e)[:100])
 
     token = create_token({"sub": str(user.id)})
+    logger.info(f"User registered: {username}")
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -237,12 +269,16 @@ async def login(
     db: Session = Depends(get_db)
 ):
     from app.models.user import User
+    logger.info(f"Login attempt: {form_data.username}")
+    
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        raise HTTPException(401, "No account with this email")
+        raise HTTPException(401, "No account found with this email")
     if not pwd_context.verify(form_data.password, user.hashed_password):
         raise HTTPException(401, "Wrong password")
+    
     token = create_token({"sub": str(user.id)})
+    logger.info(f"Login success: {user.username}")
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -263,14 +299,13 @@ async def me(current_user=Depends(get_current_user)):
     }
 
 
-# Invites
 @app.post("/api/invite/generate")
 async def gen_invite(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.invite import Invite
-    BASE_URL = os.environ.get("BASE_URL", "https://moneytree-frontend.onrender.com")
+    BASE_URL = os.environ.get("BASE_URL", "https://moneytube-frontend.onrender.com")
     code = secrets.token_urlsafe(12)
     link = f"{BASE_URL}/register?invite={code}"
     inv = Invite(
@@ -298,7 +333,6 @@ async def validate_invite(invite_code: str, db: Session = Depends(get_db)):
     return {"valid": True, "invited_by": sender.username if sender else "Unknown"}
 
 
-# Stats
 @app.get("/api/browse/stats")
 async def stats(
     current_user=Depends(get_current_user),
@@ -307,7 +341,6 @@ async def stats(
     from app.models.browse_log import BrowseLog
     from app.models.tree_node import TreeNode
     from sqlalchemy import func
-
     total = db.query(func.count(BrowseLog.id)).filter(
         BrowseLog.user_id == current_user.id
     ).scalar() or 0
@@ -316,77 +349,24 @@ async def stats(
         BrowseLog.status == "success"
     ).scalar() or 0
     node = db.query(TreeNode).filter(TreeNode.user_id == current_user.id).first()
-    tree_size = db.query(func.count(TreeNode.id)).scalar() or 0
-
     return {
         "total_browsed": total,
         "successful": success,
         "failed": total - success,
         "success_rate": round(success / total * 100, 1) if total > 0 else 0,
         "level": node.level if node else 1,
-        "tree_size": tree_size,
+        "tree_size": db.query(func.count(TreeNode.id)).scalar() or 0,
         "points": 0
     }
 
 
 @app.get("/api/browse/logs")
-async def logs(
-    limit: int = 20,
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    from app.models.browse_log import BrowseLog
-    from app.models.channel import Channel
-    logs_list = db.query(BrowseLog).filter(
-        BrowseLog.user_id == current_user.id
-    ).order_by(BrowseLog.executed_at.desc()).limit(limit).all()
-    result = []
-    for log in logs_list:
-        ch = db.query(Channel).filter(Channel.id == log.channel_id).first()
-        result.append({
-            "channel_name": ch.channel_name if ch else "Unknown",
-            "action": log.action,
-            "status": log.status,
-            "executed_at": str(log.executed_at)
-        })
-    return result
+async def get_logs(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return []
 
 
-# Tree
-@app.get("/api/tree/full")
-async def tree(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    from app.models.tree_node import TreeNode
-    from app.models.user import User
-    from app.models.channel import Channel
-
-    def build(node):
-        u = db.query(User).filter(User.id == node.user_id).first()
-        ch_count = db.query(Channel).filter(Channel.owner_id == node.user_id).count()
-        kids = db.query(TreeNode).filter(TreeNode.parent_node_id == node.id).all()
-        return {
-            "node_id": str(node.id),
-            "username": u.username if u else "Unknown",
-            "level": node.level,
-            "channel_count": ch_count,
-            "total_referrals": u.total_referrals if u else 0,
-            "children": [build(k) for k in kids]
-        }
-
-    root = db.query(TreeNode).filter(TreeNode.level == 0).first()
-    if not root:
-        return {}
-    return build(root)
-
-
-# Admin
 @app.get("/api/admin/overview")
-async def admin_overview(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+async def admin_overview(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.is_admin:
         raise HTTPException(403)
     from app.models.user import User
@@ -409,49 +389,37 @@ async def admin_overview(
 
 
 @app.get("/api/admin/users")
-async def admin_users(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+async def admin_users(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.is_admin:
         raise HTTPException(403)
     from app.models.user import User
     users = db.query(User).all()
-    return [
-        {
-            "id": str(u.id),
-            "email": u.email,
-            "username": u.username,
-            "is_admin": u.is_admin,
-            "is_active": u.is_active,
-            "total_referrals": u.total_referrals,
-            "created_at": str(u.created_at)
-        }
-        for u in users
-    ]
+    return [{
+        "id": str(u.id),
+        "email": u.email,
+        "username": u.username,
+        "is_admin": u.is_admin,
+        "is_active": u.is_active,
+        "total_referrals": u.total_referrals,
+        "created_at": str(u.created_at)
+    } for u in users]
 
 
 @app.get("/api/admin/channels")
-async def admin_channels(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+async def admin_channels(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.is_admin:
         raise HTTPException(403)
     from app.models.channel import Channel
     chs = db.query(Channel).all()
-    return [
-        {
-            "id": str(c.id),
-            "channel_name": c.channel_name,
-            "youtube_url": c.youtube_url,
-            "is_admin_default": c.is_admin_default,
-            "is_locked": c.is_locked,
-            "is_active": c.is_active,
-            "platform": c.platform
-        }
-        for c in chs
-    ]
+    return [{
+        "id": str(c.id),
+        "channel_name": c.channel_name,
+        "youtube_url": c.youtube_url,
+        "is_admin_default": c.is_admin_default,
+        "is_locked": c.is_locked,
+        "is_active": c.is_active,
+        "platform": c.platform
+    } for c in chs]
 
 
 @app.post("/api/admin/channels/add")
@@ -465,11 +433,9 @@ async def add_channel(
         raise HTTPException(403)
     from app.models.channel import Channel
     from sqlalchemy import func
-    count = db.query(func.count(Channel.id)).filter(
-        Channel.is_admin_default == True
-    ).scalar() or 0
+    count = db.query(func.count(Channel.id)).filter(Channel.is_admin_default == True).scalar() or 0
     if count >= 10:
-        raise HTTPException(400, "Max 10 admin channels")
+        raise HTTPException(400, "Max 10 channels")
     ch = Channel(
         owner_id=current_user.id,
         youtube_url=youtube_url,
@@ -481,44 +447,19 @@ async def add_channel(
     )
     db.add(ch)
     db.commit()
-    return {"success": True, "message": "Channel added!"}
+    return {"success": True}
 
 
 @app.get("/api/leaderboard/top-inviters")
-async def leaderboard(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+async def leaderboard(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.user import User
-    users = db.query(User).filter(
-        User.is_active == True
-    ).order_by(User.total_referrals.desc()).limit(50).all()
-    return [
-        {
-            "rank": i + 1,
-            "username": u.username,
-            "total_referrals": u.total_referrals,
-            "points": 0,
-            "badge": {
-                "emoji": "Crown" if i == 0 else "Tree",
-                "name": "Top" if i == 0 else "Member"
-            },
-            "is_current_user": str(u.id) == str(current_user.id)
-        }
-        for i, u in enumerate(users)
-    ]
-
-
-@app.get("/api/points/summary")
-async def points(current_user=Depends(get_current_user)):
-    return {
-        "current_balance": 0,
-        "total_earned": 0,
-        "total_spent": 0,
-        "cash_value": 0.0,
-        "today_earned": 0,
-        "cashout_available": False,
-        "cashout_minimum": 500,
-        "next_milestone": {"target": 500, "remaining": 500, "progress": 0},
-        "points_breakdown": {"referral": 100, "browse": 5, "like": 10, "subscribe": 20}
-    }
+    users = db.query(User).filter(User.is_active == True).order_by(
+        User.total_referrals.desc()
+    ).limit(50).all()
+    return [{
+        "rank": i + 1,
+        "username": u.username,
+        "total_referrals": u.total_referrals,
+        "points": 0,
+        "is_current_user": str(u.id) == str(current_user.id)
+    } for i, u in enumerate(users)]
