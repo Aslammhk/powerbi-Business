@@ -1,34 +1,22 @@
-# Core
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-dotenv==1.0.0
+# Core - Required
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-dotenv==1.0.1
 
 # Database
-sqlalchemy==2.0.25
-psycopg2-binary==2.9.9
-alembic==1.13.1
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.0
 
-# Auth
-pydantic==2.5.3
-pydantic-settings==2.1.0
+# Auth & Validation
+pydantic==2.9.2
+pydantic-settings==2.6.1
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
-python-multipart==0.0.6
-
-# Queue
-celery==5.3.6
-redis==5.0.1
-
-# Browser
-playwright==1.41.1
+python-multipart==0.0.20
 
 # HTTP
-httpx==0.26.0
+httpx==0.27.2
 
-# Payments
-stripe==7.10.0
-twilio==8.10.0
-
-# QR
-qrcode[pil]==7.4.2
-Pillow==10.2.0
+# Email (lightweight)
+aiosmtplib==3.0.2

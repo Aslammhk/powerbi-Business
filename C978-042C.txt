@@ -325,8 +325,21 @@ https://moneytree-frontend.onrender.com/admin
 
 https://moneytree-zzsj.onrender.com/
 
+postgresql://moneytree:8dTkYD7R5wvtxPzFrJ8FC4AChuh2HvqH@dpg-d8uavlb7uimc73e01js0-a/moneytree_9rtg
 
+Go to Render → Backend Service → Environment
 
+Add ALL these variables:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KEY                 VALUE
+─────────────────────────────────────────────
+DATABASE_URL        postgresql://... (from step above)
+SECRET_KEY          moneytree2024secretkey32charslong
+ADMIN_EMAIL         your@email.com
+ADMIN_PASSWORD      YourPassword123
+BASE_URL            https://moneytree-frontend.onrender.com
+API_URL             https://moneytree-zzsj.onrender.com
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 
