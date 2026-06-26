@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
@@ -41,12 +40,11 @@ async def lifespan(app: FastAPI):
         import app.models.revenue
         if engine:
             Base.metadata.create_all(bind=engine)
-            logger.info("Database tables ready")
+            logger.info("Database ready")
             await create_admin_user()
     except Exception as e:
         logger.warning(f"Startup: {e}")
     yield
-    logger.info("Shutting down...")
 
 
 async def create_admin_user():
@@ -70,11 +68,7 @@ async def create_admin_user():
             )
             db.add(admin)
             db.flush()
-            root = TreeNode(
-                user_id=admin.id,
-                parent_node_id=None,
-                level=0
-            )
+            root = TreeNode(user_id=admin.id, parent_node_id=None, level=0)
             db.add(root)
             db.commit()
             logger.info(f"Admin created: {ADMIN_EMAIL}")
@@ -85,35 +79,15 @@ async def create_admin_user():
 
 app = FastAPI(title="MoneyTree API", version="1.0.0", lifespan=lifespan)
 
-# ─── CORS Setup - Allow Everything ─────────────────────────
+# Open CORS - allow ALL origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://moneytube-frontend.onrender.com",
-        "https://moneytree-frontend.onrender.com",
-        "https://moneytube.onrender.com",
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "*"
-    ],
+    allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
+    expose_headers=["*"]
 )
-
-
-@app.options("/{path:path}")
-async def options_handler(request: Request):
-    return JSONResponse(
-        content={"message": "OK"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
 
 
 def create_token(data: dict):
@@ -147,16 +121,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @app.get("/")
 def root():
-    return {
-        "app": "MoneyTree",
-        "status": "running",
-        "version": "1.0.0",
-        "endpoints": {
-            "register": "/api/auth/register",
-            "login": "/api/auth/login",
-            "docs": "/docs"
-        }
-    }
+    return {"app": "MoneyTree", "status": "running", "version": "1.0.0"}
 
 
 @app.get("/health")
@@ -174,6 +139,7 @@ def health():
         "status": "healthy",
         "database": db_status,
         "database_url_set": bool(DATABASE_URL),
+        "admin_email": ADMIN_EMAIL,
         "port": os.environ.get("PORT", "8000")
     }
 
@@ -192,14 +158,14 @@ async def register(
     from app.models.tree_node import TreeNode
     from app.models.invite import Invite
 
-    logger.info(f"Register attempt: {email}")
+    logger.info(f"Register: {email} / {username}")
 
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(400, "Email already registered")
     if db.query(User).filter(User.username == username).first():
         raise HTTPException(400, "Username already taken")
     if len(password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+        raise HTTPException(400, "Password too short (min 6 chars)")
 
     parent = None
     if invite_code:
@@ -208,9 +174,7 @@ async def register(
             Invite.used == False
         ).first()
         if inv:
-            parent = db.query(TreeNode).filter(
-                TreeNode.user_id == inv.sender_id
-            ).first()
+            parent = db.query(TreeNode).filter(TreeNode.user_id == inv.sender_id).first()
             inv.used = True
             sender = db.query(User).filter(User.id == inv.sender_id).first()
             if sender:
@@ -228,31 +192,26 @@ async def register(
     )
     db.add(user)
     db.flush()
-
-    node = TreeNode(
+    db.add(TreeNode(
         user_id=user.id,
         parent_node_id=parent.id if parent else None,
         level=(parent.level + 1) if parent else 1
-    )
-    db.add(node)
-
-    ch = Channel(
+    ))
+    db.add(Channel(
         owner_id=user.id,
         youtube_url=channel_url,
         channel_name=username + " Channel",
         is_admin_default=False,
         is_active=True,
         browse_order=11
-    )
-    db.add(ch)
-
+    ))
     try:
         db.commit()
     except Exception as e:
         db.rollback()
-        logger.error(f"Register DB error: {e}")
-        raise HTTPException(500, "Registration failed: " + str(e)[:100])
-
+        logger.error(f"Register error: {e}")
+        raise HTTPException(500, "Registration failed")
+    
     token = create_token({"sub": str(user.id)})
     logger.info(f"User registered: {username}")
     return {
@@ -270,15 +229,15 @@ async def login(
 ):
     from app.models.user import User
     logger.info(f"Login attempt: {form_data.username}")
-    
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        raise HTTPException(401, "No account found with this email")
+        logger.warning(f"User not found: {form_data.username}")
+        raise HTTPException(401, "No account with this email")
     if not pwd_context.verify(form_data.password, user.hashed_password):
+        logger.warning(f"Wrong password: {form_data.username}")
         raise HTTPException(401, "Wrong password")
-    
     token = create_token({"sub": str(user.id)})
-    logger.info(f"Login success: {user.username}")
+    logger.info(f"Login OK: {user.username}")
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -300,20 +259,12 @@ async def me(current_user=Depends(get_current_user)):
 
 
 @app.post("/api/invite/generate")
-async def gen_invite(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+async def gen_invite(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.invite import Invite
     BASE_URL = os.environ.get("BASE_URL", "https://moneytube-frontend.onrender.com")
     code = secrets.token_urlsafe(12)
     link = f"{BASE_URL}/register?invite={code}"
-    inv = Invite(
-        sender_id=current_user.id,
-        invite_code=code,
-        invite_link=link,
-        used=False
-    )
+    inv = Invite(sender_id=current_user.id, invite_code=code, invite_link=link, used=False)
     db.add(inv)
     db.commit()
     return {"invite_code": code, "invite_link": link}
@@ -334,16 +285,11 @@ async def validate_invite(invite_code: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/browse/stats")
-async def stats(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
+async def stats(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     from app.models.browse_log import BrowseLog
     from app.models.tree_node import TreeNode
     from sqlalchemy import func
-    total = db.query(func.count(BrowseLog.id)).filter(
-        BrowseLog.user_id == current_user.id
-    ).scalar() or 0
+    total = db.query(func.count(BrowseLog.id)).filter(BrowseLog.user_id == current_user.id).scalar() or 0
     success = db.query(func.count(BrowseLog.id)).filter(
         BrowseLog.user_id == current_user.id,
         BrowseLog.status == "success"
