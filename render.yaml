@@ -1,0 +1,33 @@
+databases:
+  - name: moneytube-db
+    plan: free
+    region: ohio
+    postgresMajorVersion: 16
+
+services:
+  - type: web
+    name: moneytube-backend
+    runtime: python
+    region: ohio
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: DATABASE_URL
+        fromDatabase: postgresql://moneytube:2jKRqPb1uyP5vCsyrhaXoccbJSeINqY2@dpg-d8ujvb6rnols739nojvg-a/moneytube
+          name: moneytube-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: aslammhk@gmail.com
+      - key: ADMIN_PASSWORD
+        value: Aslam888@
+      - key: APP_NAME
+        value: MoneyTree Network
+      - key: BASE_URL
+        value: https://moneytree-frontend.onrender.com
